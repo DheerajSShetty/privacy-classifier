@@ -124,7 +124,7 @@ public class JsonReader {
 		int offset = Integer.parseInt(response.getJSONObject("meta")
 				.get("offset").toString());
 
-		while (page < 50) {
+		while (page < 10) {
 			
 			System.out.println("Page: " + page);
 			

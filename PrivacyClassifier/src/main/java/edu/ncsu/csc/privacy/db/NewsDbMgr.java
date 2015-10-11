@@ -32,7 +32,7 @@ public class NewsDbMgr {
 	      //runner.runScript(new BufferedReader(new FileReader("sql/create_schema_basic.sql")));
 
 	      mPrepdStmt = mConn
-	          .prepareStatement("insert into tweet_status_object (status_object) values (?)");
+	          .prepareStatement("insert into news_objects (news_object) values (?)");
 	    } catch (InstantiationException | IllegalAccessException | ClassNotFoundException
 	        | SQLException e) {
 	      System.err.println("There was an error initializing the database");
@@ -59,14 +59,14 @@ public class NewsDbMgr {
 	    }
 	  }
 
-	  public boolean insertObject(JSONObject status) {
+	  public boolean insertNewsObject(JSONObject status) {
 	    try {
 	      mPrepdStmt.setObject(1, status);
 	      mPrepdStmt.addBatch();
 	      if (mCounter++ % 100 == 0) {
 	        mPrepdStmt.executeBatch();
 	      }
-	      System.out.println("Number of tweets collected so far: " + mCounter);
+	      System.out.println("Number of news articles collected so far: " + mCounter);
 	    } catch (SQLException e) {
 	      System.err.println("Error inserting to the database");
 	      return false;
@@ -75,7 +75,7 @@ public class NewsDbMgr {
 	    return true;
 	  }
 
-	  public static boolean unmarshalStatusObject(String srcDbUrl, String destDbUrl) {
+	  public static boolean unmarshalNewsObject(String srcDbUrl, String destDbUrl) {
 	    try {
 	      Class.forName(MYSQL_DRIVER);
 	    } catch (ClassNotFoundException e) {
@@ -101,65 +101,39 @@ public class NewsDbMgr {
 	        try (Statement srcStmt = srcConn.createStatement();
 
 	            PreparedStatement destInsertObjPrepdStmt = destConn
-	                .prepareStatement("insert into tweet_status_object (" +
+	                .prepareStatement("insert into news_objects (" +
 	                    "id, " +
-	                    "status_object) " +
+	                    "object) " +
 	                    "values (?, ?)");
 
 	            PreparedStatement destInsertDetailsPrepdStmt = destConn.prepareStatement(
-	                "insert ignore into tweet_status_details (" +
-	                    "tweet_id, " +
-	                    "tweet_object_id, " +
-	                    "creation_time, " +
-	                    "text, " +
-	                    "geo_location, " +
+	                "insert ignore into news_details (" +
+	                    "id, " +
+	                    "news_object_id, " +
+	                    "web_url, " +
+	                    "snippet, " +
+	                    "lead_paragraph, " +
+	                    "abstract, " +
+	                    "print_page, " +
+	                    "blog, " +
 	                    "source, " +
-	                    "user_id, " +
-	                    "is_truncated, " +
-	                    "in_reply_to_status_id, " +
-	                    "in_reply_to_user_id, " +
-	                    "in_reply_to_user_screen_name, " +
-	                    "is_favorited, " +
-	                    "retweet_count, " +
-	                    "is_retweeted_by_me, " +
-	                    "current_user_retweet_id, " +
-	                    "is_possibly_sensitive)"
-	                    + "values (?, ?, ?, ?, GeomFromText(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-	            PreparedStatement destInsertUserPrepdStmt = destConn
-	                .prepareStatement("insert ignore into tweet_users (" +
-	                    "tweet_id, " +
-	                    "user_id, " +
-	                    "user_name, " +
-	                    "screen_name, " +
-	                    "location, " +
-	                    "description, " +
-	                    "is_contributor_enabled, " +
-	                    "url, " +
-	                    "is_protected, " +
-	                    "follower_count, " +
-	                    "friends_count, " +
-	                    "creation_time, " +
-	                    "favorites_count, " +
-	                    "timezone, " +
-	                    "utc_offset, " +
-	                    "lang, " +
-	                    "status_count, " +
-	                    "is_geo_enabled, " +
-	                    "is_verified, " +
-	                    "is_translator, " +
-	                    "listed_count, " +
-	                    "is_follow_request_sent) " +
-	                    "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-	            PreparedStatement destInsertContribsPrepdStmt = destConn
-	                .prepareStatement("insert into tweet_contributors (" +
-	                    "tweet_id, " +
-	                    "contributor_id) " +
-	                    "values (?, ?)");) {
+	                    "multimedia, " +
+	                    "headline, " +
+	                    "keywords, " +
+	                    "pub_date, " +
+	                    "document_type, " +
+	                    "news_desk, " +
+	                    "section_name)" + 
+	                    "subsection_name, " +
+	                    "byline, " +
+	                    "type_of_material, " +
+	                    "_id, " +
+	                    "word_count, " +
+	                    "slideshow_credits, "
+	                    + "values (?, ?, ?, ?, GeomFromText(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");) {
 
 	          resultsetSize = 0;
-	          ResultSet rs = srcStmt.executeQuery("select * from tweet_status_object where id > " + maxId
+	          ResultSet rs = srcStmt.executeQuery("select * from news_objects where id > " + maxId
 	              + " limit " + fetchSize);
 
 	          while (rs.next()) {
@@ -168,8 +142,7 @@ public class NewsDbMgr {
 	            if (buf != null) {
 	              ObjectInputStream objectIn = new ObjectInputStream(new ByteArrayInputStream(buf));
 	              JSONObject status = (JSONObject) objectIn.readObject();
-	              unmarshalStatusObject(id, status, destInsertObjPrepdStmt, destInsertDetailsPrepdStmt,
-	                  destInsertUserPrepdStmt, destInsertContribsPrepdStmt);
+	              unmarshalNewsObject(id, status, destInsertObjPrepdStmt, destInsertDetailsPrepdStmt);
 	            }
 	            resultsetSize++;
 	          }
@@ -177,8 +150,7 @@ public class NewsDbMgr {
 	          rs.close();
 	          destInsertObjPrepdStmt.executeBatch();
 	          destInsertDetailsPrepdStmt.executeBatch();
-	          destInsertUserPrepdStmt.executeBatch();
-	          destInsertContribsPrepdStmt.executeBatch();
+	          
 	          
 	          maxId += resultsetSize;
 	        } finally {
@@ -196,9 +168,8 @@ public class NewsDbMgr {
 	    return true;
 	  }
 
-	  private static void unmarshalStatusObject(long id, JSONObject status,
-	      PreparedStatement destInsertObjPrepdStmt, PreparedStatement destInsertDetailsPrepdStmt,
-	      PreparedStatement destInsertUserPrepdStmt, PreparedStatement destInsertContribsPrepdStmt)
+	  private static void unmarshalNewsObject(long id, JSONObject status,
+	      PreparedStatement destInsertObjPrepdStmt, PreparedStatement destInsertDetailsPrepdStmt)
 	      throws SQLException {
 	    /*
 	     * // Insert the object as it is. 
@@ -271,9 +242,9 @@ public class NewsDbMgr {
 	  private static long getMaxStatusDetailsId(Connection conn) throws SQLException {
 	    long maxId = 0;
 	    try (Statement stmt = conn.createStatement();
-	        ResultSet rs = stmt.executeQuery("select max(tweet_object_id) from tweet_status_details");) {
+	        ResultSet rs = stmt.executeQuery("select max(news_object_id) from news_details");) {
 	      while (rs.next()) {
-	        maxId = rs.getLong("max(tweet_object_id)");
+	        maxId = rs.getLong("max(news_object_id)");
 	      }
 	    }
 
@@ -281,9 +252,9 @@ public class NewsDbMgr {
 	  }
 
 	  public static void main(String[] args) {
-	    NewsDbMgr.unmarshalStatusObject(
-	        "jdbc:mysql://localhost:3306/twitter_election2014?user=root&password=qwerty",
-	        "jdbc:mysql://localhost:3306/twitter_election2014?user=root&password=qwerty");
+	    NewsDbMgr.unmarshalNewsObject(
+	        "jdbc:mysql://localhost:3306/nytimes_privacy?user=root&password=qwerty",
+	        "jdbc:mysql://localhost:3306/nytimes_privacy?user=root&password=qwerty");
 	  }
 	
 }
