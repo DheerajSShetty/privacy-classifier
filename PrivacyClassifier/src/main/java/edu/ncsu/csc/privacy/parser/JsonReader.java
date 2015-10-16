@@ -13,6 +13,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import edu.ncsu.csc.privacy.db.NewsDbMgr;
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
@@ -20,7 +21,6 @@ import edu.stanford.nlp.rnn.RNNCoreAnnotations;
 import edu.stanford.nlp.sentiment.SentimentCoreAnnotations;
 import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.util.CoreMap;
-
 import edu.stanford.nlp.io.*;
 import edu.stanford.nlp.ling.*;
 import edu.stanford.nlp.pipeline.*;
@@ -33,6 +33,13 @@ import edu.stanford.nlp.trees.*;
 import edu.stanford.nlp.util.*;
 
 public class JsonReader {
+	
+	private static final String MYSQL_DB_URL = "jdbc:mysql://localhost/nytimes_privacy";
+	private static final String USER = "root";
+	private static final String PASS = "qwerty"; 
+
+	private static NewsDbMgr mDbMgr = null;
+
 	
 	public static String sentimentString(int sentiment) {
 	    switch(sentiment) {
@@ -76,18 +83,17 @@ public class JsonReader {
 
 	public static void main(String[] args) throws IOException, JSONException {
 		
-		Properties props = new Properties();
+		/*Properties props = new Properties();
 		props.setProperty("annotators", "tokenize, ssplit, parse, sentiment");
 		StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
-		
-		int pos = 0;
+		*/
+		/*int pos = 0;
 		int neg = 0;
 		int vpos = 0;
 		int vneg = 0;
 		int neutral = 0;
-		
-		//String text = IOUtils.slurpFileNoExceptions(filename);
-		Annotation annotation = new Annotation("I hope no one buys Apple.");
+		*/
+		/*Annotation annotation = new Annotation("I hope no one buys Apple.");
 		pipeline.annotate(annotation);
 		
 		for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
@@ -96,12 +102,12 @@ public class JsonReader {
 			  System.err.println(sentence);
 			  System.err.println("  Predicted sentiment: " + sentimentString(sentiment));
 			}
-		
+		*/
 		
 		String q = "privacy";
-		String api_key = "7c28695c87ed6c0d43af6281da81c97c:8:73041019";
-		String begin_date = "20100101";
-		String end_date = "20150927";
+		String api_key = "7c28695c87ed6c0d43af6281da81c97c:8:73041019"; // Register on http://developer.nytimes.com
+		String begin_date = "20100101"; //YYYYMMDD
+		String end_date = "20151001"; //YYYYMMDD
 		String sort = "newest";
 		int page = 1;
 
@@ -123,8 +129,16 @@ public class JsonReader {
 				.get("hits").toString());
 		int offset = Integer.parseInt(response.getJSONObject("meta")
 				.get("offset").toString());
-
-		while (page < 10) {
+		int page_count = hits/offset;
+		
+		
+		while (page <= page_count) {
+			
+			try {
+			    Thread.sleep(1000);                 //1000 milliseconds is one second.
+			} catch(InterruptedException ex) {
+			    Thread.currentThread().interrupt();
+			}
 			
 			System.out.println("Page: " + page);
 			
@@ -132,19 +146,37 @@ public class JsonReader {
 			JSONArray docs = response.getJSONArray("docs");
 			// System.out.println(docs.toString());
 
-			String[] web_url = new String[docs.length()];
+			/*String[] web_url = new String[docs.length()];
 			String[] lead_para = new String[docs.length()];
 			String[] headline = new String[docs.length()];
-
+*/
 			for (int i = 0; i < docs.length(); i++) {
-				web_url[i] = docs.getJSONObject(i).get("web_url").toString();
-				lead_para[i] = docs.getJSONObject(i).get("lead_paragraph")
-						.toString();
-				headline[i] = docs.getJSONObject(i).getJSONObject("headline")
-						.get("main").toString();
+				//web_url[i] = docs.getJSONObject(i).get("web_url").toString();
+				//lead_para[i] = docs.getJSONObject(i).get("lead_paragraph").toString();
+				//headline[i] = docs.getJSONObject(i).getJSONObject("headline").get("main").toString();
+				 
+				 System.out.println(docs.getJSONObject(i).get("web_url").toString());
+				 mDbMgr = new NewsDbMgr();
+			        if (!mDbMgr.init(MYSQL_DB_URL, USER, PASS)) {
+			          try {
+			        	  
+						throw new Exception("Error initializing the database");
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+			        }
+			        
+			        if(!mDbMgr.insertNewsObject(docs.getJSONObject(i).toString())) {
+	                    throw new IllegalStateException("Failed to insert to the dabase.");
+	                  }
+	       
+			        
+			        mDbMgr.close();
+				
 			}
 
-			for (int i = 0; i < lead_para.length; i++) {
+			/*for (int i = 0; i < lead_para.length; i++) {
 				//System.out.println(web_url[i]);
 				
 				annotation = new Annotation(lead_para[i]);
@@ -153,8 +185,8 @@ public class JsonReader {
 				for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
 					  Tree tree = sentence.get(SentimentCoreAnnotations.AnnotatedTree.class);
 					  int sentiment = RNNCoreAnnotations.getPredictedClass(tree);
-					  //System.err.println(sentence);
-					  //System.err.println("  Predicted sentiment: " + sentimentString(sentiment));
+					  System.err.println(sentence);
+					  System.err.println("  Predicted sentiment: " + sentimentString(sentiment));
 					  
 					  if (sentiment == 0)
 						  vneg++;
@@ -171,7 +203,7 @@ public class JsonReader {
 				
 				//System.out.println(lead_para[i]);
 			}
-
+*/
 			page++;
 
 			json = readJsonFromUrl("http://api.nytimes.com/svc/search/v2/articlesearch.json?q="
@@ -194,11 +226,11 @@ public class JsonReader {
 		// System.out.println(headline.toString());
 		// System.out.println(docs.toString());
 		
-		System.out.println("V Negative" + vneg);
+		/*System.out.println("V Negative" + vneg);
 		System.out.println("Negative" + neg);
 		System.out.println("Neutral" + neutral);
 		System.out.println("Positive" + pos);
-		System.out.println("V Positive" + vpos);
+		System.out.println("V Positive" + vpos);*/
 	}
 	
 	

@@ -32,7 +32,7 @@ public class NewsDbMgr {
 	      //runner.runScript(new BufferedReader(new FileReader("sql/create_schema_basic.sql")));
 
 	      mPrepdStmt = mConn
-	          .prepareStatement("insert into news_objects (news_object) values (?)");
+	          .prepareStatement("insert into news_objects (object) values (?)");
 	    } catch (InstantiationException | IllegalAccessException | ClassNotFoundException
 	        | SQLException e) {
 	      System.err.println("There was an error initializing the database");
@@ -59,16 +59,18 @@ public class NewsDbMgr {
 	    }
 	  }
 
-	  public boolean insertNewsObject(JSONObject status) {
+	  public boolean insertNewsObject(String status) {
 	    try {
+	      
 	      mPrepdStmt.setObject(1, status);
 	      mPrepdStmt.addBatch();
+	      System.out.println("Inserting object. mCounter: " + mCounter);
 	      if (mCounter++ % 100 == 0) {
 	        mPrepdStmt.executeBatch();
 	      }
 	      System.out.println("Number of news articles collected so far: " + mCounter);
 	    } catch (SQLException e) {
-	      System.err.println("Error inserting to the database");
+	      System.err.println("Error inserting to the database" + e.toString());
 	      return false;
 	    }
 
