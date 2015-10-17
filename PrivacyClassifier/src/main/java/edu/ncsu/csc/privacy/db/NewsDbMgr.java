@@ -1,8 +1,7 @@
 package edu.ncsu.csc.privacy.db;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -64,11 +63,11 @@ public class NewsDbMgr {
 	      
 	      mPrepdStmt.setObject(1, status);
 	      mPrepdStmt.addBatch();
-	      System.out.println("Inserting object. mCounter: " + mCounter);
+	      //System.out.println("Inserting object. mCounter: " + mCounter);
 	      if (mCounter++ % 100 == 0) {
 	        mPrepdStmt.executeBatch();
 	      }
-	      System.out.println("Number of news articles collected so far: " + mCounter);
+	      //System.out.println("Number of news articles collected so far: " + mCounter);
 	    } catch (SQLException e) {
 	      System.err.println("Error inserting to the database" + e.toString());
 	      return false;
@@ -96,7 +95,7 @@ public class NewsDbMgr {
 	      //runner.runScript(new BufferedReader(new FileReader("sql/create_schema_advanced.sql")));
 
 	      long maxId = getMaxStatusDetailsId(destConn);
-	      long fetchSize = 10000;
+	      long fetchSize = 1000;
 	      long resultsetSize = 0;
 
 	      do {
@@ -125,14 +124,14 @@ public class NewsDbMgr {
 	                    "pub_date, " +
 	                    "document_type, " +
 	                    "news_desk, " +
-	                    "section_name)" + 
+	                    "section_name, " + 
 	                    "subsection_name, " +
 	                    "byline, " +
 	                    "type_of_material, " +
 	                    "_id, " +
 	                    "word_count, " +
-	                    "slideshow_credits, "
-	                    + "values (?, ?, ?, ?, GeomFromText(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");) {
+	                    "slideshow_credits) "
+	                    + "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");) {
 
 	          resultsetSize = 0;
 	          ResultSet rs = srcStmt.executeQuery("select * from news_objects where id > " + maxId
@@ -140,12 +139,34 @@ public class NewsDbMgr {
 
 	          while (rs.next()) {
 	            long id = rs.getLong("id");
-	            byte[] buf = rs.getBytes("status_object");
-	            if (buf != null) {
-	              ObjectInputStream objectIn = new ObjectInputStream(new ByteArrayInputStream(buf));
-	              JSONObject status = (JSONObject) objectIn.readObject();
-	              unmarshalNewsObject(id, status, destInsertObjPrepdStmt, destInsertDetailsPrepdStmt);
-	            }
+	            System.out.println(id);
+	            
+	            InputStream is = rs.getBinaryStream(2);
+	            int ch;
+	            
+	            String object_string = "";
+
+	          //read bytes from ByteArrayInputStream using read method
+	          while((ch = is.read()) != -1)
+	          {
+	             //System.out.print((char)ch);
+	             object_string = object_string + (char)ch;
+	          }
+	          
+	          JSONObject news = new JSONObject(object_string);
+	          
+	          //System.out.println(news.toString());
+	          System.out.println(news.get("web_url").toString());
+	          
+	          unmarshalNewsObject(id, news, destInsertObjPrepdStmt, destInsertDetailsPrepdStmt);
+	          
+	            //byte[] buf = rs.getBytes("object");
+	            //if (buf != null) {
+	              //ObjectInputStream objectIn = new ObjectInputStream(new ByteArrayInputStream(buf));
+	              //JSONObject status = (JSONObject) objectIn.readObject();
+	              
+	              //unmarshalNewsObject(id, news, destInsertObjPrepdStmt, destInsertDetailsPrepdStmt);
+	            //}
 	            resultsetSize++;
 	          }
 
@@ -161,7 +182,7 @@ public class NewsDbMgr {
 	        }
 	      } while (resultsetSize >= fetchSize);
 
-	    } catch (SQLException | IOException | ClassNotFoundException e1) {
+	    } catch (SQLException | IOException e1) {
 	      System.err.println("Error setting up the destination database");
 	      e1.printStackTrace();
 	      return false;
@@ -173,73 +194,34 @@ public class NewsDbMgr {
 	  private static void unmarshalNewsObject(long id, JSONObject status,
 	      PreparedStatement destInsertObjPrepdStmt, PreparedStatement destInsertDetailsPrepdStmt)
 	      throws SQLException {
-	    /*
-	     * // Insert the object as it is. 
-	     * destInsertObjPrepdStmt.setLong(1, id);
-	     * destInsertObjPrepdStmt.setObject(2, status);
-	     * destInsertObjPrepdStmt.addBatch();
-	     */
-
+		  
 	    // Strip the object and insert details.
-	    /*destInsertDetailsPrepdStmt.setLong(1, status.getId());
+	    destInsertDetailsPrepdStmt.setLong(1, id);
 	    destInsertDetailsPrepdStmt.setLong(2, id);
-	    destInsertDetailsPrepdStmt.setTimestamp(3, new java.sql.Timestamp(status.getCreatedAt()
-	        .getTime()));
-	    destInsertDetailsPrepdStmt.setString(4, status.getText());
-	    if (status.getGeoLocation() != null) {
-	      destInsertDetailsPrepdStmt.setString(5, "POINT(" + status.getGeoLocation().getLongitude()
-	          + " " + status.getGeoLocation().getLatitude() + ")");
-	    } else {
-	      destInsertDetailsPrepdStmt.setString(5, null);
-	    }
-	    destInsertDetailsPrepdStmt.setString(6, status.getSource());
-	    destInsertDetailsPrepdStmt.setLong(7, status.getUser().getId());
-	    destInsertDetailsPrepdStmt.setBoolean(8, status.isTruncated());
-	    destInsertDetailsPrepdStmt.setLong(9, status.getInReplyToStatusId());
-	    destInsertDetailsPrepdStmt.setLong(10, status.getInReplyToUserId());
-	    destInsertDetailsPrepdStmt.setString(11, status.getInReplyToScreenName());
-	    destInsertDetailsPrepdStmt.setBoolean(12, status.isFavorited());
-	    destInsertDetailsPrepdStmt.setLong(13, status.getRetweetCount());
-	    destInsertDetailsPrepdStmt.setBoolean(14, status.isRetweetedByMe());
-	    destInsertDetailsPrepdStmt.setLong(15, status.getCurrentUserRetweetId());
-	    destInsertDetailsPrepdStmt.setBoolean(16, status.isPossiblySensitive());
+	    destInsertDetailsPrepdStmt.setString(3, status.get("web_url").toString());
+	    destInsertDetailsPrepdStmt.setString(4, status.get("snippet").toString());
+	    destInsertDetailsPrepdStmt.setString(5, status.get("lead_paragraph").toString());
+	    destInsertDetailsPrepdStmt.setString(6, status.get("abstract").toString());
+	    destInsertDetailsPrepdStmt.setString(7, status.get("print_page").toString());
+	    destInsertDetailsPrepdStmt.setString(8, status.get("blog").toString());
+	    destInsertDetailsPrepdStmt.setString(9, status.get("source").toString());
+	    destInsertDetailsPrepdStmt.setString(10, status.get("multimedia").toString());
+	    destInsertDetailsPrepdStmt.setString(11, status.get("headline").toString());
+	    destInsertDetailsPrepdStmt.setString(12, status.get("keywords").toString());
+	    destInsertDetailsPrepdStmt.setString(13, status.get("pub_date").toString());
+	    destInsertDetailsPrepdStmt.setString(14, status.get("document_type").toString());
+	    destInsertDetailsPrepdStmt.setString(15, status.get("news_desk").toString());
+	    destInsertDetailsPrepdStmt.setString(16, status.get("section_name").toString());
+	    destInsertDetailsPrepdStmt.setString(17, status.get("subsection_name").toString());
+	    destInsertDetailsPrepdStmt.setString(18, status.get("byline").toString());
+	    destInsertDetailsPrepdStmt.setString(19, status.get("type_of_material").toString());
+	    destInsertDetailsPrepdStmt.setString(20, status.get("_id").toString());
+	    destInsertDetailsPrepdStmt.setString(21, status.get("word_count").toString());
+	    destInsertDetailsPrepdStmt.setString(22, status.get("slideshow_credits").toString());
 	    destInsertDetailsPrepdStmt.addBatch();
-	    // System.out.println(destInsertDetailsPrepdStmt.toString());
+	    System.out.println(destInsertDetailsPrepdStmt.toString());
 
-	    // Insert User details
-	    destInsertUserPrepdStmt.setLong(1, status.getId());
-	    destInsertUserPrepdStmt.setLong(2, status.getUser().getId());
-	    destInsertUserPrepdStmt.setString(3, status.getUser().getName());
-	    destInsertUserPrepdStmt.setString(4, status.getUser().getScreenName());
-	    destInsertUserPrepdStmt.setString(5, status.getUser().getLocation());
-	    destInsertUserPrepdStmt.setString(6, status.getUser().getDescription());
-	    destInsertUserPrepdStmt.setBoolean(7, status.getUser().isContributorsEnabled());
-	    destInsertUserPrepdStmt.setString(8, status.getUser().getURL());
-	    destInsertUserPrepdStmt.setBoolean(9, status.getUser().isProtected());
-	    destInsertUserPrepdStmt.setInt(10, status.getUser().getFollowersCount());
-	    destInsertUserPrepdStmt.setInt(11, status.getUser().getFriendsCount());
-	    destInsertUserPrepdStmt.setTimestamp(12, new java.sql.Timestamp(status.getUser().getCreatedAt()
-	        .getTime()));
-	    destInsertUserPrepdStmt.setLong(13, status.getUser().getFavouritesCount());
-	    destInsertUserPrepdStmt.setString(14, status.getUser().getTimeZone());
-	    destInsertUserPrepdStmt.setInt(15, status.getUser().getUtcOffset());
-	    destInsertUserPrepdStmt.setString(16, status.getUser().getLang());
-	    destInsertUserPrepdStmt.setInt(17, status.getUser().getStatusesCount());
-	    destInsertUserPrepdStmt.setBoolean(18, status.getUser().isGeoEnabled());
-	    destInsertUserPrepdStmt.setBoolean(19, status.getUser().isVerified());
-	    destInsertUserPrepdStmt.setBoolean(20, status.getUser().isTranslator());
-	    destInsertUserPrepdStmt.setInt(21, status.getUser().getListedCount());
-	    destInsertUserPrepdStmt.setBoolean(22, status.getUser().isFollowRequestSent());
-	    destInsertUserPrepdStmt.addBatch();
-
-	    // Insert contributors multi-values field into a separate table.
-	    long contribs[] = status.getContributors();
-	    for (long contrib : contribs) {
-	      destInsertContribsPrepdStmt.setLong(1, status.getId());
-	      destInsertContribsPrepdStmt.setLong(1, contrib);
-	      destInsertContribsPrepdStmt.addBatch();
 	    }
-*/	  }
 
 	  private static long getMaxStatusDetailsId(Connection conn) throws SQLException {
 	    long maxId = 0;
