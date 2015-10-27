@@ -36,7 +36,7 @@ import edu.stanford.nlp.util.*;
 public class JsonReader {
 	
 	private static final String MYSQL_DB_URL = "jdbc:mysql://localhost/nytimes_privacy";
-	private static final String USER = "root";
+	private static final String USER = "privacy_user";
 	private static final String PASS = "qwerty"; 
 
 	private static NewsDbMgr mDbMgr = null;
@@ -123,6 +123,7 @@ public class JsonReader {
 			//System.out.println("Page: " + page);
 			
 			// System.out.println(response.get("docs"));
+			response = json.getJSONObject("response");
 			JSONArray docs = response.getJSONArray("docs");
 			// System.out.println(docs.toString());
 

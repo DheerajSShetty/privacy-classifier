@@ -237,8 +237,8 @@ public class NewsDbMgr {
 
 	  public static void main(String[] args) {
 	    NewsDbMgr.unmarshalNewsObject(
-	        "jdbc:mysql://localhost:3306/nytimes_privacy?user=root&password=qwerty",
-	        "jdbc:mysql://localhost:3306/nytimes_privacy?user=root&password=qwerty");
+	        "jdbc:mysql://localhost:3306/nytimes_privacy?user=privacy_user&password=qwerty",
+	        "jdbc:mysql://localhost:3306/nytimes_privacy?user=privacy_user&password=qwerty");
 	  }
 	
 }
