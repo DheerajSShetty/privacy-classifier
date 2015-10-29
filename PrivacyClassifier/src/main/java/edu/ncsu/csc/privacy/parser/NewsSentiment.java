@@ -1,5 +1,8 @@
 package edu.ncsu.csc.privacy.parser;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -22,7 +25,13 @@ import edu.stanford.nlp.util.*;
 public class NewsSentiment {
 	
 	private static final String MYSQL_DRIVER = "com.mysql.jdbc.Driver";
-
+	
+	static int pos=0;
+	static int neg=0;
+	static int neu=0;
+	static int unknown_label=0;
+	
+	
 	public static String sentimentString(int sentiment) {
 	    switch(sentiment) {
 	    case 0:
@@ -60,11 +69,6 @@ public class NewsSentiment {
 	      long resultsetSize = 0;
 	      long maxId = 0;
 	      
-	      int pos = 0;
-	      int neg = 0;
-	      int neu = 0;
-	      int unknown_label = 0;
-
 	      do {
 	        try { 
 	        	Statement srcStmt = conn.createStatement();     		
@@ -79,7 +83,7 @@ public class NewsSentiment {
 	            String paragraph  = rs.getString("lead_paragraph");
   	          System.out.println(paragraph);
   	          
-  	          getSentiment(paragraph);
+  	          //getSentiment(paragraph);
   	          
   	          
   	        switch(getSentiment(paragraph)) {
@@ -118,6 +122,61 @@ public class NewsSentiment {
 	    }
 	  }
 	
+	public static void readCSV(String filepath) {
+		//filepath = "/PrivacyClassifier/data/type_news+source_nytimes+rand_400.csv";
+		BufferedReader br = null;
+		String line = "";
+		String csvSplitBy = ",";
+
+		try {
+			
+			br = new BufferedReader(new FileReader(filepath));
+			int index=0;
+			while ((line = br.readLine()) != null) {
+
+				
+				// use comma as separator
+				//String[] news_entry = line.split(csvSplitBy);
+				String lead_paragraph = line;
+				index++;
+				System.out.println(index + ". " + lead_paragraph);
+				if(lead_paragraph != null && !lead_paragraph.isEmpty() && lead_paragraph.trim() != "")
+				switch(getSentiment(lead_paragraph)) {
+	  		    case 0:
+	  		    case 1:
+	  		      neg++; break;
+	  		    case 2:
+	  		      neu++; break;
+	  		    case 3:
+	  		    case 4:
+	  		      pos++; break;
+	  		    default:
+	  		      unknown_label++;
+	  		    }
+
+			}
+
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				try {
+					br.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+		System.out.println("Positive: " + pos);
+	    System.out.println("Negative: " + neg);
+	    System.out.println("Neutral: " + neu);
+	    System.out.println("Unknown: " + unknown_label);
+	}
+	
 	public static int getSentiment(String text) {
 		Properties props = new Properties();
 		props.setProperty("annotators", "tokenize, ssplit, parse, sentiment");
@@ -140,7 +199,10 @@ public class NewsSentiment {
 			  agg_sentiment += sentiment;
 			  sentence_count++;
 			}
-		return agg_sentiment/sentence_count;
+		if(sentence_count == 0) {
+			return 9;
+		}
+		else return agg_sentiment/sentence_count;
 	}
 	
 	public static void main(String[] args) {
@@ -153,7 +215,9 @@ public class NewsSentiment {
 
 		//tweetSentiment();
 		
-		fetchNewsObject("jdbc:mysql://localhost:3306/nytimes_privacy?user=privacy_user&password=qwerty");
+		//fetchNewsObject("jdbc:mysql://localhost:3306/nytimes_privacy?user=privacy_user&password=qwerty");
+		readCSV("data/type_news+source_nytimes+rand_400-leadpara.csv");
+		//System.out.println("Working Directory = " +  System.getProperty("user.dir"));
 		  
 		/*Properties props = new Properties();
 		props.setProperty("annotators", "tokenize, ssplit, parse, sentiment");
