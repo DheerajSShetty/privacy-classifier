@@ -3,8 +3,10 @@ package edu.ncsu.csc.privacy.parser;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -127,10 +129,13 @@ public class NewsSentiment {
 		BufferedReader br = null;
 		String line = "";
 		String csvSplitBy = ",";
+		
+		int sentiments[] = new int[410];
 
 		try {
 			
 			br = new BufferedReader(new FileReader(filepath));
+			FileWriter sentiment_writer = new FileWriter("data/type_news+source_nytimes+rand_400-leadpara-sentiments.csv");
 			int index=0;
 			while ((line = br.readLine()) != null) {
 
@@ -138,10 +143,10 @@ public class NewsSentiment {
 				// use comma as separator
 				//String[] news_entry = line.split(csvSplitBy);
 				String lead_paragraph = line;
-				index++;
-				System.out.println(index + ". " + lead_paragraph);
 				if(lead_paragraph != null && !lead_paragraph.isEmpty() && lead_paragraph.trim() != "")
-				switch(getSentiment(lead_paragraph)) {
+				sentiments[index] = getSentiment(lead_paragraph);
+				
+				switch(sentiments[index]) {
 	  		    case 0:
 	  		    case 1:
 	  		      neg++; break;
@@ -153,8 +158,16 @@ public class NewsSentiment {
 	  		    default:
 	  		      unknown_label++;
 	  		    }
+				
+				
+				sentiment_writer.append(sentiments[index]+"\n");
+				index++;
+				System.out.println(index + ". " + lead_paragraph);
 
 			}
+			
+			sentiment_writer.flush();
+			sentiment_writer.close();
 
 
 		} catch (FileNotFoundException e) {
